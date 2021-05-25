@@ -1,0 +1,26 @@
+{
+  "name": "api-generator",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Api generator for openapi specification",
+  "author": "Joom Co.",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts"
+  },
+  "keywords": [
+    "bin",
+    "api",
+    "generator"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "ts-node": "^10.0.0",
+    "tslib": "^2.2.0",
+    "typescript": "^4.2.4",
+    "yaml": "1.10.2"
+  },
+  "devDependencies": {
+    "@types/node": "^15.6.1"
+  }
+}
