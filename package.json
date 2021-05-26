@@ -21,6 +21,7 @@
     "yaml": "1.10.2"
   },
   "devDependencies": {
-    "@types/node": "^15.6.1"
+    "@types/node": "^15.6.1",
+    "prettier": "^2.3.0"
   }
 }

@@ -1,56 +1,91 @@
 import {promises as fs} from 'fs';
 
-import type {ApiMethod} from './index';
-import type {InnerType, TypeDeclaration} from './types';
-import {Parameter} from './types';
+import type {ApiMethod, InnerType, TypeDeclaration} from './types';
+import {ParameterPlace} from './types';
 import {capitalize} from './utils';
 
 type TypesMap = Map<string, TypeDeclaration>;
 
 type Data = {
   apiMethods: ApiMethod[];
-  types: TypeDeclaration[];
+  types: Map<string, TypeDeclaration>;
 };
 
 const apiGroupCode = `/* eslint-disable @typescript-eslint/no-explicit-any */
 
-export type Methods = 'GET' | 'POST' | 'PUT' | 'PATCH';
+import {
+  %IMPORTS%
+} from './types';
+
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH';
+
+export type QueryParams = Record<string, string | number | undefined>;
+
+export type MiddlewareParams = {
+  method: Method;
+  route: string;
+  query?: QueryParams;
+  body?: any;
+}
+
+export type Middleware = (params: MiddlewareParams) => Promise<any>;
+
+function interpolateParams(url: string, params: QueryParams) {
+  let updatedUrl = url;
+  
+  while (true) {
+    const match = updatedUrl.match(/{([A-Za-z_][A-Za-z0-9_]*)}/);
+    
+    if (!match) {
+      break;
+    }
+    
+    const value = params[match[1]] ?? '';
+    
+    updatedUrl = \`\${updatedUrl.substr(0, match.index)}\${value}\${updatedUrl.substr((match.index || 0) + match[0].length)}\` 
+  }
+  
+  return updatedUrl;
+}
 
 class ApiGroup {
-  public readonly method: Methods;
+  public readonly method: Method;
 
-  private readonly middleware: any;
+  private readonly middleware: Middleware;
 
-  public constructor(method: Methods, middleware: any) {
+  public constructor(method: Method, middleware: Middleware) {
     this.method = method;
     this.middleware = middleware;
   }
 
-  protected callApi(routePath: string, params: any): Promise<any> {
-    return this.middleware(this.method, routePath, params);
+  protected callApi(route: string, query?: QueryParams, body?: any): Promise<any> {
+    return this.middleware({
+      method: this.method,
+      route,
+      query,
+      body,
+    });
   }
 }
 `;
 
 const apiServiceCode = `
 export class ApiService {
-  public readonly get = new ApiGroupGet(this.middleware);
+  public readonly get: ApiGroupGet;
+  public readonly post: ApiGroupPost;
+  public readonly put: ApiGroupPut;
+  public readonly patch: ApiGroupPatch;
 
-  public readonly post = new ApiGroupPost(this.middleware);
-
-  public readonly put = new ApiGroupPut(this.middleware);
-
-  public readonly patch = new ApiGroupPatch(this.middleware);
-
-  private middleware = any;
-
-  constructor(middleware: any) {
-    this.middleware = middleware;
+  constructor(middleware: Middleware) {
+    this.get = new ApiGroupGet(middleware);
+    this.post = new ApiGroupPost(middleware);
+    this.put = new ApiGroupPut(middleware);
+    this.patch = new ApiGroupPatch(middleware);
   }
 }
 `;
 
-function convertToTs(types: TypesMap, type: InnerType, depth = 0): string {
+function convertToTs(types: TypesMap, usedTypes: Set<string> | undefined, type: InnerType, depth = 0): string {
   // console.log('type:', type);
 
   const gap = '  '.repeat(depth);
@@ -60,30 +95,35 @@ function convertToTs(types: TypesMap, type: InnerType, depth = 0): string {
     case 'string':
     case 'number':
     case 'boolean':
+    case 'void':
       return type.type;
     case 'object':
       return `{
 ${innerGap}${type.fields
         .map((field) => {
-          return `${field.name}${field.required ? '' : '?'}: ${convertToTs(types, field.type, depth + 1)}`;
+          return `${field.name}${field.required ? '' : '?'}: ${convertToTs(types, usedTypes, field.type, depth + 1)}`;
         })
         .join(`;\n${innerGap}`)};
 ${gap}}`;
 
     case 'object-composition':
-      return type.composition.map((type) => convertToTs(types, type, depth + 1)).join(' & ');
+      return type.composition.map((type) => convertToTs(types, usedTypes, type, depth + 1)).join(' & ');
 
     case 'map':
-      return `Record<string, ${convertToTs(types, type.elementType, depth)}>`;
+      return `Record<string, ${convertToTs(types, usedTypes, type.elementType, depth)}>`;
 
     case 'array':
-      return `${convertToTs(types, type.elementType, depth)}[]`;
+      return `${convertToTs(types, usedTypes, type.elementType, depth)}[]`;
 
     case 'ref': {
       const typeDecl = types.get(type.ref);
 
       if (!typeDecl) {
         throw new Error(`Type "${type.ref}" has not found`);
+      }
+
+      if (usedTypes) {
+        usedTypes.add(typeDecl.name);
       }
 
       return typeDecl.name;
@@ -94,75 +134,115 @@ ${gap}}`;
   }
 }
 
-async function processTypes(types: TypesMap) {
-  const sorted = [...types.values()].sort((info1, info2) => info1.name.localeCompare(info2.name));
+function sortTypes(types: Map<string, TypeDeclaration>): TypeDeclaration[] {
+  return [...types.values()].sort((info1, info2) => info1.name.localeCompare(info2.name));
+}
 
-  const typeDefinitions = sorted.map((info) => {
-    return `export type ${info.name} = ${convertToTs(types, info.type)};
+async function processTypes(types: TypesMap) {
+  const typeDefinitions = sortTypes(types).map((info) => {
+    return `export type ${info.name} = ${convertToTs(types, undefined, info.type)};
 `;
   });
 
   await fs.writeFile('out/types.ts', typeDefinitions.join('\n') + '\n');
 }
 
-type ApiDecl = {
-  routePath: string;
-  params: Parameter[];
-  flat: InnerType[];
-};
+function formatMethod(
+  types: TypesMap,
+  usedTypes: Set<string>,
+  {routePath, params: {parameters, flatTypes}, resultType}: ApiMethod,
+): string {
+  const inPathParams = parameters.filter((param) => param.place == ParameterPlace.IN_PATH).map((param) => param.name);
+  const inQueryParams = parameters.filter((param) => param.place == ParameterPlace.QUERY).map((param) => param.name);
+  const splitParams = [...inPathParams, ...inQueryParams];
+
+  const fieldTypes = parameters
+    .map((p) => `${p.name}${p.required ? '' : '?'}: ${convertToTs(types, usedTypes, p.type)}`)
+    .join(',\n    ');
+
+  let bodyCode = '';
+  let queryParams = 'undefined';
+  let routeCode = `'${routePath}'`;
+
+  if (parameters.length - inPathParams.length - inQueryParams.length > 0) {
+    bodyCode = 'body';
+  }
+
+  let paramsCode: string;
+
+  if (splitParams.length) {
+    paramsCode = `{ ${splitParams.join(', ')}${bodyCode ? `, ...${bodyCode}` : ''} }`;
+
+    if (inPathParams) {
+      routeCode = `interpolateParams('${routePath}', { ${inPathParams.join(', ')} })`;
+    }
+
+    if (inQueryParams.length) {
+      queryParams = `{ ${inQueryParams.join(', ')} }`;
+    }
+  } else {
+    paramsCode = `${bodyCode}`;
+  }
+
+  return `public async '${routePath}'(${
+    paramsCode
+      ? `${paramsCode}: {
+    ${fieldTypes}
+  }`
+      : ''
+  }): Promise<${convertToTs(types, usedTypes, resultType, 1)}> {
+    return this.callApi(${routeCode}, ${queryParams}${bodyCode ? `, ${bodyCode}` : ''});
+  }`;
+}
 
 async function processApi(types: TypesMap, apiMethods: ApiMethod[]) {
-  const methodGrouped: Record<string, ApiDecl[]> = {
+  const methodGrouped: Record<string, ApiMethod[]> = {
     get: [],
     post: [],
     put: [],
     patch: [],
   };
 
-  for (const {method, routePath, params} of apiMethods) {
-    methodGrouped[method.toLowerCase()].push({
-      routePath,
-      params: params.parameters,
-      flat: params.flatTypes,
-    });
+  for (const apiMethod of apiMethods) {
+    methodGrouped[apiMethod.method.toLowerCase()].push(apiMethod);
   }
 
-  const filteredMethods = Object.entries(methodGrouped);
+  const usedTypes = new Set<string>();
 
-  await fs.writeFile(
-    'out/api.ts',
-    apiGroupCode +
-      '\n' +
-      filteredMethods
-        .map(([methodName, list]) => {
-          const methods = list.map(
-            ({routePath, params}) => `public async '${routePath}'(params: {
-    ${params.map((p) => `${p.name}${p.required ? '' : '?'}: ${convertToTs(types, p.type)}`).join(',\n    ')}
-  }): ${'Promise<string>'} {
-    return this.callApi("${routePath}", params);
-  }`,
-          );
+  const methodsPart = Object.entries(methodGrouped)
+    .map(([methodName, list]) => {
+      const methods = list.map((m) => formatMethod(types, usedTypes, m));
 
-          return `class ApiGroup${capitalize(methodName)} extends ApiGroup {
-  public constructor(middleware: any) {
+      return `class ApiGroup${capitalize(methodName)} extends ApiGroup {
+  public constructor(middleware: Middleware) {
     super("${methodName.toUpperCase()}", middleware);
   }
 
   ${methods.join('\n\n  ')}
 }\n`;
-        })
-        .join('\n') +
-      `\n${apiServiceCode}`,
+    })
+    .join('\n');
+
+  const head = apiGroupCode.replace(
+    '%IMPORTS%',
+    sortTypes(types)
+      .filter((type) => usedTypes.has(type.name))
+      .map((type) => type.name)
+      .join(',\n  '),
   );
+
+  const apiCode = `${head}
+${methodsPart}
+${apiServiceCode}`;
+
+  await fs.writeFile('out/api.ts', apiCode);
 }
 
 export async function generate({types, apiMethods}: Data) {
-  console.log(apiMethods);
-  console.log(types);
-  console.log('Done');
+  await processTypes(types);
+  await processApi(types, apiMethods);
 
-  const typesMap = new Map(types.map((type) => [type.fullName, type]));
-
-  await processTypes(typesMap);
-  await processApi(typesMap, apiMethods);
+  console.info(`Success (files have been generated):
+  * out/types.ts
+  * out/api.ts`);
 }

@@ -47,6 +47,10 @@ export type RefType = {
   ref: string;
 };
 
+export type VoidType = {
+  type: 'void';
+};
+
 export type InnerType =
   | StringType
   | NumberType
@@ -55,7 +59,8 @@ export type InnerType =
   | ObjectCompositionType
   | MapType
   | ArrayType
-  | RefType;
+  | RefType
+  | VoidType;
 
 export type Parameter = {
   place: ParameterPlace;
@@ -68,4 +73,14 @@ export type TypeDeclaration = {
   name: string;
   fullName: string;
   type: InnerType;
+};
+
+export type ApiMethod = {
+  routePath: string;
+  method: string;
+  params: {
+    parameters: Parameter[];
+    flatTypes: InnerType[];
+  };
+  resultType: InnerType;
 };

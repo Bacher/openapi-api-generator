@@ -56,6 +56,16 @@ export type YamlParameter = {
   required: boolean;
 };
 
+export type YamlResponse = {
+  '200': {
+    content: {
+      'application/json': {
+        schema: Schema;
+      };
+    };
+  };
+};
+
 export type YamlFile = {
   components: {
     schemas: Schema[];
@@ -65,6 +75,7 @@ export type YamlFile = {
 export type ApiInfo = {
   parameters?: YamlParameter[];
   requestBody?: YamlBody;
+  responses?: YamlResponse;
 };
 
 export type Paths = Record<'get' | 'post', ApiInfo>;

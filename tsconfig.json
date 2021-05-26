@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "outDir": "./build",
-    "rootDir": "./src",
     "strict": true,
     "module": "CommonJS",
     "noEmit": false,
@@ -13,14 +12,7 @@
     "forceConsistentCasingInFileNames": true,
     "importHelpers": true,
     "importsNotUsedAsValues": "preserve", // this is important for proper files watching
-    "lib": [
-      "ES2015",
-      "ES2016",
-      "ES2017",
-      "ES2018",
-      "ES2019.Array",
-      "ES2019.Object"
-    ],
+    "lib": ["ES2015", "ES2016", "ES2017", "ES2018", "ES2019.Array", "ES2019.Object"],
     "moduleResolution": "node",
     "noImplicitAny": true,
     "noImplicitReturns": true,
