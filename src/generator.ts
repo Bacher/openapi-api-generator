@@ -154,24 +154,32 @@ function formatMethod(
 ): string {
   const inPathParams = parameters.filter((param) => param.place == ParameterPlace.IN_PATH).map((param) => param.name);
   const inQueryParams = parameters.filter((param) => param.place == ParameterPlace.QUERY).map((param) => param.name);
-  const splitParams = [...inPathParams, ...inQueryParams];
+  const extractParams = [...inPathParams, ...inQueryParams];
 
-  const fieldTypes = parameters
-    .map((p) => `${p.name}${p.required ? '' : '?'}: ${convertToTs(types, usedTypes, p.type)}`)
-    .join(',\n    ');
+  let paramsType = parameters.length
+    ? `{ ${parameters
+        .map((p) => `${p.name}${p.required ? '' : '?'}: ${convertToTs(types, usedTypes, p.type)}`)
+        .join(',\n    ')} }`
+    : '';
+
+  if (flatTypes.length) {
+    paramsType += `${paramsType ? ' & ' : ''}${flatTypes
+      .map((type) => convertToTs(types, usedTypes, type))
+      .join(' & ')}`;
+  }
 
   let bodyCode = '';
   let queryParams = 'undefined';
   let routeCode = `'${routePath}'`;
 
-  if (parameters.length - inPathParams.length - inQueryParams.length > 0) {
+  if (flatTypes.length > 0 || parameters.length - inPathParams.length - inQueryParams.length > 0) {
     bodyCode = 'body';
   }
 
   let paramsCode: string;
 
-  if (splitParams.length) {
-    paramsCode = `{ ${splitParams.join(', ')}${bodyCode ? `, ...${bodyCode}` : ''} }`;
+  if (extractParams.length) {
+    paramsCode = `{ ${extractParams.join(', ')}${bodyCode ? `, ...${bodyCode}` : ''} }`;
 
     if (inPathParams) {
       routeCode = `interpolateParams('${routePath}', { ${inPathParams.join(', ')} })`;
@@ -184,13 +192,12 @@ function formatMethod(
     paramsCode = `${bodyCode}`;
   }
 
-  return `public async '${routePath}'(${
-    paramsCode
-      ? `${paramsCode}: {
-    ${fieldTypes}
-  }`
-      : ''
-  }): Promise<${convertToTs(types, usedTypes, resultType, 1)}> {
+  return `public async '${routePath}'(${paramsCode ? `${paramsCode}: ${paramsType}` : ''}): Promise<${convertToTs(
+    types,
+    usedTypes,
+    resultType,
+    1,
+  )}> {
     return this.callApi(${routeCode}, ${queryParams}${bodyCode ? `, ${bodyCode}` : ''});
   }`;
 }

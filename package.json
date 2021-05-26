@@ -1,27 +1,37 @@
 {
-  "name": "api-generator",
+  "name": "openapi-api-generator",
   "private": true,
   "version": "0.1.0",
   "description": "Api generator for openapi specification",
   "author": "Joom Co.",
   "main": "src/index.ts",
+  "bin": "dist/cmd.js",
   "scripts": {
-    "start": "ts-node src/index.ts"
+    "start": "ts-node src/index.ts",
+    "build": "tsc"
   },
+  "files": [
+    "dist/",
+    "src/",
+    "README.md"
+  ],
   "keywords": [
     "bin",
     "api",
-    "generator"
+    "generator",
+    "typescript"
   ],
   "license": "ISC",
   "dependencies": {
-    "ts-node": "^10.0.0",
     "tslib": "^2.2.0",
-    "typescript": "^4.2.4",
-    "yaml": "1.10.2"
+    "yaml": "1.10.2",
+    "yargs": "^17.0.1"
   },
   "devDependencies": {
     "@types/node": "^15.6.1",
-    "prettier": "^2.3.0"
+    "@types/yargs": "^17.0.0",
+    "prettier": "^2.3.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^4.2.4"
   }
 }
