@@ -1,9 +1,9 @@
-# Swagger Api Generator
+# Openapi Api Generator
 
 ## Usage:
 
 ```sh
-$ yarn start examples/openapi.yaml
+$ npx openapi-api-generator --out api examples/openapi.yaml
 ```
 
 Output:

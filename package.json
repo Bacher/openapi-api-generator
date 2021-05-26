@@ -1,14 +1,14 @@
 {
   "name": "openapi-api-generator",
-  "private": true,
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Api generator for openapi specification",
-  "author": "Joom Co.",
+  "author": "Ilya Lebedev <bacherko@gmail.com>",
   "main": "src/index.ts",
-  "bin": "dist/cmd.js",
+  "bin": "dist/run.js",
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "build": "tsc"
+    "start": "ts-node src/run.ts",
+    "build": "tsc",
+    "prepublish": "npm build"
   },
   "files": [
     "dist/",
@@ -23,11 +23,13 @@
   ],
   "license": "ISC",
   "dependencies": {
+    "mkdirp": "^1.0.4",
     "tslib": "^2.2.0",
     "yaml": "1.10.2",
     "yargs": "^17.0.1"
   },
   "devDependencies": {
+    "@types/mkdirp": "^1.0.1",
     "@types/node": "^15.6.1",
     "@types/yargs": "^17.0.0",
     "prettier": "^2.3.0",

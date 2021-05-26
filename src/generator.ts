@@ -1,4 +1,5 @@
 import {promises as fs} from 'fs';
+import path from 'path';
 
 import type {ApiMethod, InnerType, TypeDeclaration} from './types';
 import {ParameterPlace} from './types';
@@ -138,13 +139,13 @@ function sortTypes(types: Map<string, TypeDeclaration>): TypeDeclaration[] {
   return [...types.values()].sort((info1, info2) => info1.name.localeCompare(info2.name));
 }
 
-async function processTypes(types: TypesMap) {
+async function processTypes(types: TypesMap, outFile: string) {
   const typeDefinitions = sortTypes(types).map((info) => {
     return `export type ${info.name} = ${convertToTs(types, undefined, info.type)};
 `;
   });
 
-  await fs.writeFile('out/types.ts', typeDefinitions.join('\n') + '\n');
+  await fs.writeFile(outFile, typeDefinitions.join('\n') + '\n');
 }
 
 function formatMethod(
@@ -202,7 +203,7 @@ function formatMethod(
   }`;
 }
 
-async function processApi(types: TypesMap, apiMethods: ApiMethod[]) {
+async function processApi(types: TypesMap, apiMethods: ApiMethod[], outFile: string) {
   const methodGrouped: Record<string, ApiMethod[]> = {
     get: [],
     post: [],
@@ -242,14 +243,17 @@ async function processApi(types: TypesMap, apiMethods: ApiMethod[]) {
 ${methodsPart}
 ${apiServiceCode}`;
 
-  await fs.writeFile('out/api.ts', apiCode);
+  await fs.writeFile(outFile, apiCode);
 }
 
-export async function generate({types, apiMethods}: Data) {
-  await processTypes(types);
-  await processApi(types, apiMethods);
+export async function generate({types, apiMethods}: Data, outDir: string) {
+  const typesFileName = path.join(outDir, 'types.ts');
+  const apiFileName = path.join(outDir, 'api.ts');
+
+  await processTypes(types, typesFileName);
+  await processApi(types, apiMethods, apiFileName);
 
   console.info(`Success (files have been generated):
-  * out/types.ts
-  * out/api.ts`);
+  * ${path.relative(process.cwd(), typesFileName)}
+  * ${path.relative(process.cwd(), apiFileName)}`);
 }
