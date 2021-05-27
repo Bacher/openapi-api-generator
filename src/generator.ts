@@ -77,7 +77,7 @@ export class ApiService {
   public readonly put: ApiGroupPut;
   public readonly patch: ApiGroupPatch;
 
-  constructor(middleware: Middleware) {
+  public constructor(middleware: Middleware) {
     this.get = new ApiGroupGet(middleware);
     this.post = new ApiGroupPost(middleware);
     this.put = new ApiGroupPut(middleware);

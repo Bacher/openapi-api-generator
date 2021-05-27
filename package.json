@@ -1,6 +1,6 @@
 {
   "name": "openapi-api-generator",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Api generator for openapi specification",
   "author": "Ilya Lebedev <bacherko@gmail.com>",
   "main": "src/index.ts",
