@@ -1,8 +1,8 @@
 {
   "name": "openapi-api-generator",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Api generator for openapi specification",
-  "author": "Ilya Lebedev <bacherko@gmail.com>",
+  "author": "Ilya Lebedev <bacherko@gmail.com> (https://github.com/bacher/openapi-api-generator)",
   "main": "src/index.ts",
   "bin": "dist/run.js",
   "scripts": {
