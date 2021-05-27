@@ -1,6 +1,6 @@
 {
   "name": "openapi-api-generator",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Api generator for openapi specification",
   "author": "Ilya Lebedev <bacherko@gmail.com>",
   "main": "src/index.ts",
@@ -8,7 +8,7 @@
   "scripts": {
     "start": "ts-node src/run.ts",
     "build": "tsc",
-    "prepublish": "npm build"
+    "prepublish": "rm -rf dist && npm build"
   },
   "files": [
     "dist/",

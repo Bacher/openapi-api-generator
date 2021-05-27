@@ -6,6 +6,7 @@ export type YamlType =
   | YamlRef
   | {
       type: 'string';
+      enum?: string[];
     }
   | {
       type: 'integer';

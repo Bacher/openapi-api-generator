@@ -42,6 +42,11 @@ export type ArrayType = {
   elementType: InnerType;
 };
 
+export type EnumType = {
+  type: 'enum';
+  values: string[];
+};
+
 export type RefType = {
   type: 'ref';
   ref: string;
@@ -59,6 +64,7 @@ export type InnerType =
   | ObjectCompositionType
   | MapType
   | ArrayType
+  | EnumType
   | RefType
   | VoidType;
 

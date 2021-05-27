@@ -51,10 +51,19 @@ function convertType(propType: YamlType, file: string): InnerType {
 
   switch (propType.type) {
     case 'boolean':
-    case 'string':
     case 'number':
       return {
         type: propType.type,
+      };
+    case 'string':
+      if (propType.enum) {
+        return {
+          type: 'enum',
+          values: propType.enum,
+        };
+      }
+      return {
+        type: 'string',
       };
     case 'integer':
       return {
