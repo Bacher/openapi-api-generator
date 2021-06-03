@@ -17,6 +17,10 @@ async function run() {
       default: 'out',
       defaultDescription: './out',
     })
+    .option('namespace', {
+      description: 'Typescript namespace for API types',
+      default: '',
+    })
     .alias('help', 'h')
     .alias('version', 'v')
     .example([
@@ -42,7 +46,7 @@ async function run() {
     await mkdirp(outDir);
   } catch {}
 
-  await generate({types, apiMethods}, outDir);
+  await generate({types, apiMethods, namespace: args.namespace}, outDir);
 }
 
 run().catch((err) => {

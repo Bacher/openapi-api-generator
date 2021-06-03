@@ -90,3 +90,5 @@ export type ApiMethod = {
   };
   resultType: InnerType;
 };
+
+export type TypesMap = Map<string, TypeDeclaration>;
