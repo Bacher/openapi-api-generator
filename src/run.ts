@@ -30,8 +30,8 @@ async function run() {
     .alias('version', 'v')
     .example([
       ['$0 api/openapi.yaml', 'Process api/openapi.yaml file'],
-      ['$0 -o ./api api/openapi.yaml', 'Collect generated api in ./api directory'],
-      ['$0 -o ./api api/openapi.yaml --use-enums', 'Generate api with enums'],
+      ['$0 -o ./gen api/openapi.yaml', 'Collect generated api in ./gen directory'],
+      ['$0 -o ./gen api/openapi.yaml --use-enums', 'Generate api with enums'],
     ]);
 
   const args = await argv;

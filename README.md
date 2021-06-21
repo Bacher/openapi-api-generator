@@ -9,11 +9,13 @@ Options:
   -v, --version    Show version number                                 [boolean]
   -o, --out        Output directory                             [default: ./out]
       --namespace  Typescript namespace for API types              [default: ""]
+      --use-enums  Use Typescript enums for openapi enum values
+                                                      [boolean] [default: false]
 
 Examples:
-  openapi-api-generator api/openapi.yaml    Process api/openapi.yaml file
-  openapi-api-generator -o ./api            Collect generated api in ./api
-  api/openapi.yaml'                         directory
+  openapi-api-generator api/openapi.yaml                       Process api/openapi.yaml file
+  openapi-api-generator -o ./gen api/openapi.yaml              Collect generated api in ./gen directory
+  openapi-api-generator -o ./gen api/openapi.yaml --use-enums  Generate api with enums
 ```
 
 ### Example
