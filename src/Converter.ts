@@ -22,7 +22,6 @@ export class Converter {
     this.enums = new Map();
 
     for (const typeDecl of this.types.values()) {
-      console.log(typeDecl.name);
       this.traverse(typeDecl.name, typeDecl.type, []);
     }
   }
