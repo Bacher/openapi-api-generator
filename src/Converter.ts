@@ -2,6 +2,11 @@ import _ from 'lodash';
 
 import type {InnerType, TypesMap} from './types';
 
+function pascalCase(str: string): string {
+  const formatted = _.camelCase(str);
+  return `${formatted[0].toUpperCase()}${formatted.substr(1)}`;
+}
+
 export class Converter {
   useEnums: boolean;
   types: TypesMap;
@@ -16,24 +21,35 @@ export class Converter {
     this.usedTypes = new Set();
     this.enums = new Map();
 
-    for (const [name, typeDecl] of this.types.entries()) {
-      this.traverse(name, typeDecl.type);
+    for (const typeDecl of this.types.values()) {
+      console.log(typeDecl.name);
+      this.traverse(typeDecl.name, typeDecl.type, []);
     }
   }
 
-  private traverse(name: string, type: InnerType) {
+  private traverse(name: string, type: InnerType, path: string[]) {
     switch (type.type) {
       case 'enum':
-        const enumName = _.capitalize(name);
+        let enumName = pascalCase(name);
         const values = type.values.map((value) => ({
           key: _.snakeCase(value).toUpperCase(),
           value,
         }));
 
-        const alreadyEnum = this.enums.get(enumName);
+        let pathIndex = path.length - 1;
+        while (true) {
+          const alreadyEnum = this.enums.get(enumName);
 
-        if (alreadyEnum && alreadyEnum.join('|') !== values.join('|')) {
-          throw new Error(`Enum duplicates: ${name}`);
+          if (alreadyEnum && alreadyEnum.join('|') !== values.join('|')) {
+            if (pathIndex < 0) {
+              throw new Error(`Top level enums duplicates: ${name}`);
+            }
+
+            enumName = pascalCase(`${path[pathIndex]}${enumName}`);
+            pathIndex--;
+          } else {
+            break;
+          }
         }
 
         type.enumName = enumName;
@@ -42,7 +58,7 @@ export class Converter {
         break;
       case 'object':
         for (const field of type.fields) {
-          this.traverse(field.name, field.type);
+          this.traverse(field.name, field.type, [...path, name]);
         }
         break;
     }
