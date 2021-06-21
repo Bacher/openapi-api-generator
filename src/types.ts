@@ -44,6 +44,7 @@ export type ArrayType = {
 
 export type EnumType = {
   type: 'enum';
+  enumName?: string;
   values: string[];
 };
 

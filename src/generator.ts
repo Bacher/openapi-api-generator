@@ -10,6 +10,7 @@ type Data = {
   apiMethods: ApiMethod[];
   types: Map<string, TypeDeclaration>;
   namespace?: string;
+  useEnums?: boolean;
 };
 
 function getApiHeader({namespace, importTypes}: {namespace?: string; importTypes: string}) {
@@ -101,16 +102,14 @@ export class ApiService {
 }
 `;
 
-function sortTypes(types: Map<string, TypeDeclaration>): TypeDeclaration[] {
-  return [...types.values()].sort((info1, info2) => info1.name.localeCompare(info2.name));
-}
+async function processTypes(
+  types: TypesMap,
+  outFile: string,
+  {namespace, useEnums}: {namespace?: string; useEnums?: boolean},
+) {
+  const converter = new Converter({types, useEnums});
 
-async function processTypes(types: TypesMap, outFile: string, namespace?: string) {
-  const converter = new Converter({types});
-
-  const typeDefinitions = sortTypes(types).map((info) => {
-    return `export type ${info.name} = ${converter.toTs(info.type)};`;
-  });
+  const typeDefinitions = converter.extractDefinitions();
 
   await fs.writeFile(
     outFile,
@@ -180,7 +179,12 @@ function formatMethod(
   }`;
 }
 
-async function processApi(types: TypesMap, apiMethods: ApiMethod[], outFile: string, namespace?: string) {
+async function processApi(
+  types: TypesMap,
+  apiMethods: ApiMethod[],
+  outFile: string,
+  {namespace, useEnums}: {namespace?: string; useEnums?: boolean},
+) {
   const methodGrouped: Record<string, ApiMethod[]> = {
     get: [],
     post: [],
@@ -188,7 +192,7 @@ async function processApi(types: TypesMap, apiMethods: ApiMethod[], outFile: str
     patch: [],
   };
 
-  const converter = new Converter({types, namespace});
+  const converter = new Converter({types, namespace, useEnums});
 
   for (const apiMethod of apiMethods) {
     methodGrouped[apiMethod.method.toLowerCase()].push(apiMethod);
@@ -211,10 +215,7 @@ async function processApi(types: TypesMap, apiMethods: ApiMethod[], outFile: str
     })
     .join('\n');
 
-  const filteredTypes = sortTypes(types)
-    .filter((type) => converter.usedTypes.has(type.name))
-    .map((type) => type.name);
-
+  const filteredTypes = converter.getUsedTypeNames();
   const head = getApiHeader({namespace, importTypes: filteredTypes.length ? `${filteredTypes.join(',\n  ')},` : ''});
 
   const apiCode = `${head}
@@ -232,13 +233,13 @@ export * from './api';
   );
 }
 
-export async function generate({types, apiMethods, namespace}: Data, outDir: string) {
+export async function generate({types, apiMethods, namespace, useEnums}: Data, outDir: string) {
   const typesFileName = path.join(outDir, 'types.ts');
   const apiFileName = path.join(outDir, 'api.ts');
   const indexFileName = path.join(outDir, 'index.ts');
 
-  await processTypes(types, typesFileName, namespace);
-  await processApi(types, apiMethods, apiFileName, namespace);
+  await processTypes(types, typesFileName, {namespace, useEnums});
+  await processApi(types, apiMethods, apiFileName, {namespace, useEnums});
   await processIndex(indexFileName);
 
   console.info(`Success (files have been generated):

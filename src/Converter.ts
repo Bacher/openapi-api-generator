@@ -1,14 +1,51 @@
+import _ from 'lodash';
+
 import type {InnerType, TypesMap} from './types';
 
 export class Converter {
+  useEnums: boolean;
   types: TypesMap;
   usedTypes: Set<string>;
   namespace?: string;
+  enums: Map<string, {key: string; value: string}[]>;
 
-  constructor({types, namespace}: {types: TypesMap; namespace?: string}) {
+  constructor({types, namespace, useEnums}: {types: TypesMap; namespace?: string; useEnums?: boolean}) {
+    this.useEnums = Boolean(useEnums);
     this.types = types;
     this.namespace = namespace;
     this.usedTypes = new Set();
+    this.enums = new Map();
+
+    for (const [name, typeDecl] of this.types.entries()) {
+      this.traverse(name, typeDecl.type);
+    }
+  }
+
+  private traverse(name: string, type: InnerType) {
+    switch (type.type) {
+      case 'enum':
+        const enumName = _.capitalize(name);
+        const values = type.values.map((value) => ({
+          key: _.snakeCase(value).toUpperCase(),
+          value,
+        }));
+
+        const alreadyEnum = this.enums.get(enumName);
+
+        if (alreadyEnum && alreadyEnum.join('|') !== values.join('|')) {
+          throw new Error(`Enum duplicates: ${name}`);
+        }
+
+        type.enumName = enumName;
+
+        this.enums.set(enumName, values);
+        break;
+      case 'object':
+        for (const field of type.fields) {
+          this.traverse(field.name, field.type);
+        }
+        break;
+    }
   }
 
   toTs(type: InnerType, depth = 0): string {
@@ -40,6 +77,11 @@ ${gap}}`;
         return `${this.toTs(type.elementType, depth)}[]`;
 
       case 'enum':
+        if (this.useEnums && type.enumName) {
+          this.usedTypes.add(type.enumName);
+          return type.enumName;
+        }
+
         return type.values.map((value) => `'${value}'`).join(' | ');
 
       case 'ref': {
@@ -57,5 +99,37 @@ ${gap}}`;
       default:
         return 'never';
     }
+  }
+
+  private generateEnum(name: string, values: {key: string; value: string}[]): string {
+    return `export enum ${name} {\n${values.map(({key, value}) => `  ${key} = '${value}',`).join('\n')}\n}`;
+  }
+
+  public extractEnums() {
+    return [...this.enums.entries()].map(([name, values]) => this.generateEnum(name, values)).join('\n\n');
+  }
+
+  extractDefinitions(): string[] {
+    const sortedTypes = [...this.types.values()].sort((info1, info2) => info1.name.localeCompare(info2.name));
+
+    let typeDefinitions = sortedTypes.map((info) => `export type ${info.name} = ${this.toTs(info.type)};`);
+
+    if (this.useEnums) {
+      typeDefinitions = [...typeDefinitions, this.extractEnums()];
+    }
+
+    return typeDefinitions;
+  }
+
+  public getUsedTypeNames(): string[] {
+    let enumNames: string[] = [];
+
+    if (this.useEnums) {
+      enumNames = [...this.enums.keys()].sort();
+    }
+
+    const typeNames = [...this.types.values()].map((n) => n.name).sort();
+
+    return [...enumNames, ...typeNames].filter((name) => this.usedTypes.has(name));
   }
 }

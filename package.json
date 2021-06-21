@@ -8,7 +8,9 @@
   "scripts": {
     "start": "ts-node src/run.ts",
     "build": "tsc",
-    "prepublish": "rm -rf dist && npm run build"
+    "prepublish": "rm -rf dist && npm run build",
+    "types-out-types": "tsc out/api.ts && tsc out/types.ts",
+    "test": "yarn start examples/client/openapi.yaml --use-enums && yarn types-out-types"
   },
   "files": [
     "dist/",
@@ -23,12 +25,14 @@
   ],
   "license": "ISC",
   "dependencies": {
+    "lodash": "^4.17.21",
     "mkdirp": "^1.0.4",
     "tslib": "^2.2.0",
     "yaml": "1.10.2",
     "yargs": "^17.0.1"
   },
   "devDependencies": {
+    "@types/lodash": "^4.14.170",
     "@types/mkdirp": "^1.0.1",
     "@types/node": "^15.6.1",
     "@types/yargs": "^17.0.0",

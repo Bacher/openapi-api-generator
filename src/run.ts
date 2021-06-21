@@ -21,11 +21,17 @@ async function run() {
       description: 'Typescript namespace for API types',
       default: '',
     })
+    .option('use-enums', {
+      type: 'boolean',
+      description: 'Use Typescript enums for openapi enum values',
+      default: false,
+    })
     .alias('help', 'h')
     .alias('version', 'v')
     .example([
       ['$0 api/openapi.yaml', 'Process api/openapi.yaml file'],
-      ["$0 -o ./api api/openapi.yaml'", 'Collect generated api in ./api directory'],
+      ['$0 -o ./api api/openapi.yaml', 'Collect generated api in ./api directory'],
+      ['$0 -o ./api api/openapi.yaml --use-enums', 'Generate api with enums'],
     ]);
 
   const args = await argv;
@@ -46,7 +52,7 @@ async function run() {
     await mkdirp(outDir);
   } catch {}
 
-  await generate({types, apiMethods, namespace: args.namespace}, outDir);
+  await generate({types, apiMethods, namespace: args.namespace, useEnums: args['use-enums']}, outDir);
 }
 
 run().catch((err) => {
