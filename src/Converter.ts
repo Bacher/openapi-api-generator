@@ -39,7 +39,11 @@ export class Converter {
         while (true) {
           const alreadyEnum = this.enums.get(enumName);
 
-          if (alreadyEnum && alreadyEnum.join('|') !== values.join('|')) {
+          if (
+            (alreadyEnum && alreadyEnum.join('|') !== values.join('|')) ||
+            enumName.length < 3 ||
+            enumName === 'Type'
+          ) {
             if (pathIndex < 0) {
               throw new Error(`Top level enums duplicates: ${name}`);
             }
@@ -121,19 +125,20 @@ ${gap}}`;
   }
 
   public extractEnums() {
-    return [...this.enums.entries()].map(([name, values]) => this.generateEnum(name, values)).join('\n\n');
+    return [...this.enums.entries()].map(([name, values]) => this.generateEnum(name, values));
   }
 
   extractDefinitions(): string[] {
-    const sortedTypes = [...this.types.values()].sort((info1, info2) => info1.name.localeCompare(info2.name));
-
-    let typeDefinitions = sortedTypes.map((info) => `export type ${info.name} = ${this.toTs(info.type)};`);
+    let enums: string[] = [];
 
     if (this.useEnums) {
-      typeDefinitions = [...typeDefinitions, this.extractEnums()];
+      enums = this.extractEnums();
     }
 
-    return typeDefinitions;
+    const sortedTypes = [...this.types.values()].sort((info1, info2) => info1.name.localeCompare(info2.name));
+    const types = sortedTypes.map((info) => `export type ${info.name} = ${this.toTs(info.type)};`);
+
+    return [...enums, ...types];
   }
 
   public getUsedTypeNames(): string[] {
