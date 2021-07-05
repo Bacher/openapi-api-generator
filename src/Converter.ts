@@ -7,6 +7,19 @@ function pascalCase(str: string): string {
   return `${formatted[0].toUpperCase()}${formatted.substr(1)}`;
 }
 
+type EnumValues = {key: string; value: string}[];
+
+function enumFootprint(enumValues: EnumValues) {
+  return enumValues
+    .sort((v1, v2) => v1.value.localeCompare(v2.value))
+    .map((v) => v.value)
+    .join('|');
+}
+
+function compareEnums(enum1: EnumValues, enum2: EnumValues): boolean {
+  return enumFootprint(enum1) === enumFootprint(enum2);
+}
+
 export class Converter {
   useEnums: boolean;
   types: TypesMap;
@@ -21,12 +34,21 @@ export class Converter {
     this.usedTypes = new Set();
     this.enums = new Map();
 
-    for (const typeDecl of this.types.values()) {
-      this.traverse(typeDecl.name, typeDecl.type, []);
+    const duplicates = new Set<string>();
+    while (true) {
+      const duplicatesCount = duplicates.size;
+
+      for (const typeDecl of this.types.values()) {
+        this.traverse(typeDecl.name, typeDecl.type, [], duplicates);
+      }
+
+      if (duplicatesCount === duplicates.size) {
+        break;
+      }
     }
   }
 
-  private traverse(name: string, type: InnerType, path: string[]) {
+  private traverse(name: string, type: InnerType, path: string[], duplicates: Set<string>) {
     switch (type.type) {
       case 'enum':
         let enumName = pascalCase(name);
@@ -37,13 +59,23 @@ export class Converter {
 
         let pathIndex = path.length - 1;
         while (true) {
-          const alreadyEnum = this.enums.get(enumName);
+          let isDuplicate = false;
 
-          if (
-            (alreadyEnum && alreadyEnum.join('|') !== values.join('|')) ||
-            enumName.length < 3 ||
-            enumName === 'Type'
-          ) {
+          if ([...this.types.values()].some((t) => t.name === enumName)) {
+            isDuplicate = true;
+          } else if (duplicates.has(enumName)) {
+            isDuplicate = true;
+          } else {
+            const alreadyEnum = this.enums.get(enumName);
+
+            if (alreadyEnum && !compareEnums(alreadyEnum, values)) {
+              isDuplicate = true;
+              this.enums.delete(enumName);
+              duplicates.add(enumName);
+            }
+          }
+
+          if (isDuplicate || enumName.length < 3 || enumName === 'Type') {
             if (pathIndex < 0) {
               throw new Error(`Top level enums duplicates: ${name}`);
             }
@@ -61,7 +93,7 @@ export class Converter {
         break;
       case 'object':
         for (const field of type.fields) {
-          this.traverse(field.name, field.type, [...path, name]);
+          this.traverse(field.name, field.type, [...path, name], duplicates);
         }
         break;
     }
