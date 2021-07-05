@@ -10,7 +10,7 @@ function pascalCase(str: string): string {
 type EnumValues = {key: string; value: string}[];
 
 function enumFootprint(enumValues: EnumValues) {
-  return enumValues
+  return [...enumValues]
     .sort((v1, v2) => v1.value.localeCompare(v2.value))
     .map((v) => v.value)
     .join('|');
