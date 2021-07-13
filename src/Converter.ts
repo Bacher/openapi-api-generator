@@ -25,14 +25,14 @@ export class Converter {
   types: TypesMap;
   usedTypes: Set<string>;
   namespace?: string;
-  enums: Map<string, {key: string; value: string}[]>;
+  inlineEnums: Map<string, {key: string; value: string}[]>;
 
   constructor({types, namespace, useEnums}: {types: TypesMap; namespace?: string; useEnums?: boolean}) {
     this.useEnums = Boolean(useEnums);
     this.types = types;
     this.namespace = namespace;
     this.usedTypes = new Set();
-    this.enums = new Map();
+    this.inlineEnums = new Map();
 
     const duplicates = new Set<string>();
     while (true) {
@@ -57,6 +57,13 @@ export class Converter {
           value,
         }));
 
+        const globalEnum = [...this.types.values()].find((t) => t.type.type === 'enum' && t.name === enumName);
+
+        if (globalEnum) {
+          this.usedTypes.has(globalEnum.name);
+          break;
+        }
+
         let pathIndex = path.length - 1;
         while (true) {
           let isDuplicate = false;
@@ -66,11 +73,11 @@ export class Converter {
           } else if (duplicates.has(enumName)) {
             isDuplicate = true;
           } else {
-            const alreadyEnum = this.enums.get(enumName);
+            const alreadyEnum = this.inlineEnums.get(enumName);
 
             if (alreadyEnum && !compareEnums(alreadyEnum, values)) {
               isDuplicate = true;
-              this.enums.delete(enumName);
+              this.inlineEnums.delete(enumName);
               duplicates.add(enumName);
             }
           }
@@ -89,7 +96,7 @@ export class Converter {
 
         type.enumName = enumName;
 
-        this.enums.set(enumName, values);
+        this.inlineEnums.set(enumName, values);
         break;
       case 'object':
         for (const field of type.fields) {
@@ -157,7 +164,7 @@ ${gap}}`;
   }
 
   public extractEnums() {
-    return [...this.enums.entries()].map(([name, values]) => this.generateEnum(name, values));
+    return [...this.inlineEnums.entries()].map(([name, values]) => this.generateEnum(name, values));
   }
 
   extractDefinitions(): string[] {
@@ -177,7 +184,7 @@ ${gap}}`;
     let enumNames: string[] = [];
 
     if (this.useEnums) {
-      enumNames = [...this.enums.keys()].sort();
+      enumNames = [...this.inlineEnums.keys()].sort();
     }
 
     const typeNames = [...this.types.values()].map((n) => n.name).sort();
