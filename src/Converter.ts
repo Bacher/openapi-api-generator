@@ -1,10 +1,15 @@
 import _ from 'lodash';
 
 import type {InnerType, TypesMap} from './types';
+import {EnumType} from './types';
 
 function pascalCase(str: string): string {
   const formatted = _.camelCase(str);
   return `${formatted[0].toUpperCase()}${formatted.substr(1)}`;
+}
+
+function upperSnakeCase(str: string): string {
+  return _.snakeCase(str).toUpperCase();
 }
 
 type EnumValues = {key: string; value: string}[];
@@ -18,6 +23,13 @@ function enumFootprint(enumValues: EnumValues) {
 
 function compareEnums(enum1: EnumValues, enum2: EnumValues): boolean {
   return enumFootprint(enum1) === enumFootprint(enum2);
+}
+
+function fulfillEnumValues(values: string[]) {
+  return values.map((value) => ({
+    key: upperSnakeCase(value),
+    value,
+  }));
 }
 
 export class Converter {
@@ -51,13 +63,10 @@ export class Converter {
   private traverse(name: string, type: InnerType, path: string[], duplicates: Set<string>) {
     switch (type.type) {
       case 'enum':
-        let enumName = pascalCase(name);
-        const values = type.values.map((value) => ({
-          key: _.snakeCase(value).toUpperCase(),
-          value,
-        }));
+        let extractedEnumName = pascalCase(name);
+        const values = fulfillEnumValues(type.values);
 
-        const globalEnum = [...this.types.values()].find((t) => t.type.type === 'enum' && t.name === enumName);
+        const globalEnum = [...this.types.values()].find((t) => t.type.type === 'enum' && t.name === extractedEnumName);
 
         if (globalEnum) {
           this.usedTypes.has(globalEnum.name);
@@ -68,35 +77,35 @@ export class Converter {
         while (true) {
           let isDuplicate = false;
 
-          if ([...this.types.values()].some((t) => t.name === enumName)) {
+          if ([...this.types.values()].some((t) => t.name === extractedEnumName)) {
             isDuplicate = true;
-          } else if (duplicates.has(enumName)) {
+          } else if (duplicates.has(extractedEnumName)) {
             isDuplicate = true;
           } else {
-            const alreadyEnum = this.inlineEnums.get(enumName);
+            const alreadyEnum = this.inlineEnums.get(extractedEnumName);
 
             if (alreadyEnum && !compareEnums(alreadyEnum, values)) {
               isDuplicate = true;
-              this.inlineEnums.delete(enumName);
-              duplicates.add(enumName);
+              this.inlineEnums.delete(extractedEnumName);
+              duplicates.add(extractedEnumName);
             }
           }
 
-          if (isDuplicate || enumName.length < 3 || enumName === 'Type') {
+          if (isDuplicate || extractedEnumName.length < 3 || extractedEnumName === 'Type') {
             if (pathIndex < 0) {
               throw new Error(`Top level enums duplicates: ${name}`);
             }
 
-            enumName = pascalCase(`${path[pathIndex]}${enumName}`);
+            extractedEnumName = pascalCase(`${path[pathIndex]}${extractedEnumName}`);
             pathIndex--;
           } else {
             break;
           }
         }
 
-        type.enumName = enumName;
+        type.extractedEnumName = extractedEnumName;
 
-        this.inlineEnums.set(enumName, values);
+        this.inlineEnums.set(extractedEnumName, values);
         break;
       case 'object':
         for (const field of type.fields) {
@@ -135,9 +144,9 @@ ${gap}}`;
         return `${this.toTs(type.elementType, depth)}[]`;
 
       case 'enum':
-        if (this.useEnums && type.enumName) {
-          this.usedTypes.add(type.enumName);
-          return type.enumName;
+        if (this.useEnums && type.extractedEnumName) {
+          this.usedTypes.add(type.extractedEnumName);
+          return type.extractedEnumName;
         }
 
         return type.values.map((value) => `'${value}'`).join(' | ');
@@ -163,21 +172,32 @@ ${gap}}`;
     return `export enum ${name} {\n${values.map(({key, value}) => `  ${key} = '${value}',`).join('\n')}\n}`;
   }
 
-  public extractEnums() {
-    return [...this.inlineEnums.entries()].map(([name, values]) => this.generateEnum(name, values));
-  }
-
   extractDefinitions(): string[] {
-    let enums: string[] = [];
+    const sortedTypes = [...this.types.values()].sort((info1, info2) => info1.name.localeCompare(info2.name));
+
+    let realTypes = sortedTypes;
+    let enumDeclarations: string[] = [];
 
     if (this.useEnums) {
-      enums = this.extractEnums();
+      realTypes = sortedTypes.filter((info) => info.type.type !== 'enum');
+
+      const inlineEnums = [...this.inlineEnums.entries()].map(([name, values]) => ({name, values}));
+
+      const topLevelEnums = sortedTypes
+        .filter((info) => info.type.type === 'enum')
+        .map(({name, type}) => ({
+          name,
+          values: fulfillEnumValues((type as EnumType).values),
+        }));
+
+      enumDeclarations = [...inlineEnums, ...topLevelEnums]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(({name, values}) => this.generateEnum(name, values));
     }
 
-    const sortedTypes = [...this.types.values()].sort((info1, info2) => info1.name.localeCompare(info2.name));
-    const types = sortedTypes.map((info) => `export type ${info.name} = ${this.toTs(info.type)};`);
+    const types = realTypes.map((info) => `export type ${info.name} = ${this.toTs(info.type)};`);
 
-    return [...enums, ...types];
+    return [...enumDeclarations, ...types];
   }
 
   public getUsedTypeNames(): string[] {
