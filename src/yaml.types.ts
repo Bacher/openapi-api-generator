@@ -35,6 +35,13 @@ export type YamlObject = {
       allOf: (YamlRef | YamlObject)[];
     }
   | {
+      oneOf: (YamlRef | YamlObject)[];
+      discriminator: {
+        propertyName: string;
+        mapping: Record<string, string>;
+      };
+    }
+  | {
       additionalProperties: YamlType;
     }
 );

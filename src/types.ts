@@ -27,6 +27,15 @@ export type ObjectType = {
   fields: ObjectFieldType[];
 };
 
+export type UnionType = {
+  type: 'union';
+  union: (ObjectType | RefType)[];
+  discriminator: {
+    propertyName: string;
+    mapping: any;
+  };
+};
+
 export type ObjectCompositionType = {
   type: 'object-composition';
   composition: (ObjectType | RefType)[];
@@ -63,6 +72,7 @@ export type InnerType =
   | BooleanType
   | ObjectType
   | ObjectCompositionType
+  | UnionType
   | MapType
   | ArrayType
   | EnumType

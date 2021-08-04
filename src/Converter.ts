@@ -1,7 +1,7 @@
 import _ from 'lodash';
 
-import type {InnerType, TypesMap} from './types';
-import {EnumType} from './types';
+import type {InnerType, TypeDeclaration, TypesMap} from './types';
+import {EnumType, ObjectFieldType} from './types';
 
 function pascalCase(str: string): string {
   const formatted = _.camelCase(str);
@@ -115,6 +115,60 @@ export class Converter {
     }
   }
 
+  private unRef(type: TypeDeclaration | ObjectFieldType): TypeDeclaration | ObjectFieldType {
+    if (type.type.type === 'ref') {
+      const unRefType = this.types.get(type.type.ref);
+
+      if (!unRefType) {
+        throw new Error(`Can't resolve ref type: ${type.type.ref}`);
+      }
+
+      return unRefType;
+    }
+
+    return type;
+  }
+
+  private getFieldTypeByName(type: InnerType, fieldName: string): TypeDeclaration | ObjectFieldType | undefined {
+    switch (type.type) {
+      case 'ref': {
+        const typeByRef = this.types.get(type.ref);
+
+        if (!typeByRef) {
+          throw new Error('No type by ref');
+        }
+
+        return this.getFieldTypeByName(typeByRef.type, fieldName);
+      }
+
+      case 'object': {
+        const foundField = type.fields.find(({name}) => name === fieldName);
+
+        if (!foundField) {
+          return undefined;
+        }
+
+        return this.unRef(foundField);
+      }
+
+      case 'object-composition': {
+        for (const innerType of [...type.composition].reverse()) {
+          const type = this.getFieldTypeByName(innerType, fieldName);
+
+          if (type) {
+            return type;
+          }
+        }
+
+        throw new Error('Field is not found');
+      }
+
+      default:
+        console.warn(`Unknown type: ${type.type}`);
+        throw new Error('Unknown type');
+    }
+  }
+
   toTs(type: InnerType, depth = 0): string {
     const gap = '  '.repeat(depth);
     const innerGap = '  '.repeat(depth + 1);
@@ -136,6 +190,52 @@ ${gap}}`;
 
       case 'object-composition':
         return type.composition.map((type) => this.toTs(type, depth)).join(' & ');
+
+      case 'union':
+        const propertyName = type.discriminator.propertyName;
+        const mapping = type?.discriminator?.mapping ? [...Object.entries(type.discriminator.mapping)] : undefined;
+
+        return type.union
+          .map((innerType) => {
+            const serializedType = this.toTs(innerType, depth);
+
+            if (mapping) {
+              if (innerType.type !== 'ref') {
+                throw new Error('No ref type with mapping');
+              }
+
+              const propertyValueEntry = mapping.find(([, ref]) => ref === innerType.ref);
+
+              if (!propertyValueEntry) {
+                throw new Error('Mapping ref type is not matched');
+              }
+
+              const propertyValue = propertyValueEntry[0];
+              const finalType = this.types.get(innerType.ref)!;
+              let value: string | undefined;
+
+              if (this.useEnums) {
+                const discriminatorType = this.getFieldTypeByName(finalType.type, propertyName);
+
+                if (discriminatorType && discriminatorType.type.type === 'enum') {
+                  if (!discriminatorType.type.values.some((value) => value === propertyValue)) {
+                    throw new Error('No enum value');
+                  }
+
+                  value = `${discriminatorType.name}.${propertyValue}`;
+                }
+              }
+
+              if (!value) {
+                value = `"${propertyValue}"`;
+              }
+
+              return `Omit<${serializedType}, '${propertyName}'> & { ${propertyName}: ${value} }`;
+            }
+
+            return serializedType;
+          })
+          .join(' | ');
 
       case 'map':
         return `Record<string, ${this.toTs(type.elementType, depth)}>`;
@@ -164,6 +264,8 @@ ${gap}}`;
       }
 
       default:
+        // @ts-ignore
+        console.warn(`Can't process unknown type: ${type.type}, using "never" instead.`);
         return 'never';
     }
   }

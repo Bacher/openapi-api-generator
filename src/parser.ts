@@ -82,15 +82,10 @@ function convertType(propType: YamlType, file: string): InnerType {
       };
     }
     case 'object': {
-      const fields: ObjectFieldType[] = [];
+      let propertiesObject: InnerType | undefined;
 
-      if ('allOf' in propType) {
-        return {
-          type: 'object-composition',
-          // @ts-ignore
-          composition: propType.allOf.map((part) => convertType(part, file)),
-        };
-      } else if ('properties' in propType) {
+      if ('properties' in propType) {
+        const fields: ObjectFieldType[] = [];
         for (const [fieldName, fieldDesc] of Object.entries(propType.properties)) {
           fields.push({
             name: normalizeName(fieldName),
@@ -99,10 +94,33 @@ function convertType(propType: YamlType, file: string): InnerType {
           });
         }
 
-        return {
+        propertiesObject = {
           type: 'object',
           fields,
         };
+      }
+
+      if ('allOf' in propType) {
+        const composition = propType.allOf.map((part) => convertType(part, file));
+
+        if (propertiesObject) {
+          composition.push(propertiesObject);
+        }
+
+        return {
+          type: 'object-composition',
+          // @ts-ignore
+          composition,
+        };
+      } else if ('oneOf' in propType) {
+        return {
+          type: 'union',
+          // @ts-ignore
+          union: propType.oneOf.map((part) => convertType(part, file)),
+          discriminator: propType.discriminator,
+        };
+      } else if (propertiesObject) {
+        return propertiesObject;
       } else if ('additionalProperties' in propType) {
         return {
           type: 'map',
