@@ -32,8 +32,6 @@ export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH';
 
 export type QueryParams = Record<string, string | number | undefined>;
 
-export type Headers = Record<string, string>;
-
 export type MiddlewareParams = {
   method: Method;
   route: string;
@@ -42,7 +40,7 @@ export type MiddlewareParams = {
   headers?: Headers;
 };
 
-export type Middleware = (params: MiddlewareParams) => Promise<any>;
+export type Middleware<Meta> = (params: MiddlewareParams, meta?: Meta) => Promise<any>;
 
 function interpolateParams(url: string, params: QueryParams) {
   let updatedUrl = url;
@@ -63,41 +61,41 @@ function interpolateParams(url: string, params: QueryParams) {
   return updatedUrl;
 }
 
-class ApiGroup {
+class ApiGroup<Meta> {
   public readonly method: Method;
 
-  private readonly middleware: Middleware;
+  private readonly middleware: Middleware<Meta>;
 
-  public constructor(method: Method, middleware: Middleware) {
+  public constructor(method: Method, middleware: Middleware<Meta>) {
     this.method = method;
     this.middleware = middleware;
   }
 
-  protected callApi(route: string, query?: QueryParams, body?: any, headers?: Headers): Promise<any> {
+  protected callApi(route: string, query?: QueryParams, body?: any, headers?: Headers, meta?: Meta): Promise<any> {
     return this.middleware({
       method: this.method,
       route,
       query,
       body,
       headers,
-    });
+    }, meta);
   }
 }
 `;
 }
 
 const apiServiceCode = `
-export class ApiService {
-  public readonly get: ApiGroupGet;
-  public readonly post: ApiGroupPost;
-  public readonly put: ApiGroupPut;
-  public readonly patch: ApiGroupPatch;
+export class ApiService<Meta = never> {
+  public readonly get: ApiGroupGet<Meta>;
+  public readonly post: ApiGroupPost<Meta>;
+  public readonly put: ApiGroupPut<Meta>;
+  public readonly patch: ApiGroupPatch<Meta>;
 
-  public constructor(middleware: Middleware) {
-    this.get = new ApiGroupGet(middleware);
-    this.post = new ApiGroupPost(middleware);
-    this.put = new ApiGroupPut(middleware);
-    this.patch = new ApiGroupPatch(middleware);
+  public constructor(middleware: Middleware<Meta>) {
+    this.get = new ApiGroupGet<Meta>(middleware);
+    this.post = new ApiGroupPost<Meta>(middleware);
+    this.put = new ApiGroupPut<Meta>(middleware);
+    this.patch = new ApiGroupPatch<Meta>(middleware);
   }
 }
 `;
@@ -161,7 +159,7 @@ function formatMethod(
   if (extractParams.length) {
     paramsCode = `{ ${extractParams.join(', ')}${bodyCode ? `, ...${bodyCode}` : ''} }`;
 
-    if (inPathParams) {
+    if (inPathParams.length) {
       routeCode = `interpolateParams('${routePath}', { ${inPathParams.join(', ')} })`;
     }
 
@@ -174,8 +172,8 @@ function formatMethod(
 
   return `public '${routePath}' = async (${
     paramsCode ? `${paramsCode}: ${paramsType}` : '_?: void'
-  }, headers?: Headers): Promise<${converter.toTs(resultType, 1)}> => {
-    return this.callApi(${routeCode}, ${queryParams}, ${bodyCode ? bodyCode : 'undefined'}, headers);
+  }, headers?: Headers, meta?: Meta): Promise<${converter.toTs(resultType, 1)}> => {
+    return this.callApi(${routeCode}, ${queryParams}, ${bodyCode ? bodyCode : 'undefined'}, headers, meta);
   }`;
 }
 
@@ -202,8 +200,8 @@ async function processApi(
     .map(([methodName, list]) => {
       const methods = list.map((m) => formatMethod(converter, m));
 
-      return `class ApiGroup${capitalize(methodName)} extends ApiGroup {
-  public constructor(middleware: Middleware) {
+      return `class ApiGroup${capitalize(methodName)}<Meta> extends ApiGroup<Meta> {
+  public constructor(middleware: Middleware<Meta>) {
     super('${methodName.toUpperCase()}', middleware);
   }${
     methods.length
