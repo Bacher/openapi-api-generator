@@ -40,7 +40,7 @@ export type MiddlewareParams = {
   headers?: Headers;
 };
 
-export type Middleware<Meta> = (params: MiddlewareParams, meta?: Meta) => Promise<any>;
+export type Middleware<Meta> = (params: MiddlewareParams, meta: Meta) => Promise<any>;
 
 function interpolateParams(url: string, params: QueryParams) {
   let updatedUrl = url;
@@ -71,7 +71,17 @@ class ApiGroup<Meta> {
     this.middleware = middleware;
   }
 
-  protected callApi(route: string, query?: QueryParams, body?: any, headers?: Headers, meta?: Meta): Promise<any> {
+  protected callApi(route: string, {
+      query,
+      body,
+      headers,
+      meta,
+    }: {
+      query?: QueryParams;
+      body?: any;
+      headers?: Headers;
+      meta: Meta;
+    }): Promise<any> {
     return this.middleware({
       method: this.method,
       route,
@@ -167,13 +177,31 @@ function formatMethod(
       queryParams = `{ ${inQueryParams.join(', ')} }`;
     }
   } else {
-    paramsCode = `${bodyCode}`;
+    paramsCode = bodyCode;
   }
 
-  return `public '${routePath}' = async (${
-    paramsCode ? `${paramsCode}: ${paramsType}` : '_?: void'
-  }, headers?: Headers, meta?: Meta): Promise<${converter.toTs(resultType, 1)}> => {
-    return this.callApi(${routeCode}, ${queryParams}, ${bodyCode ? bodyCode : 'undefined'}, headers, meta);
+  const inputArgument = `{${paramsCode ? `params: ${paramsCode}, ` : ''}headers, meta}: { ${
+    paramsType ? `params: ${paramsType}, ` : ''
+  }headers?: Headers, meta: Meta, }`;
+
+  const args = [];
+
+  if (bodyCode) {
+    if (bodyCode === 'body') {
+      args.push('body');
+    } else {
+      args.push(`body = ${bodyCode}`);
+    }
+  }
+
+  if (queryParams) {
+    args.push(`query: ${queryParams}`);
+  }
+
+  args.push('headers', 'meta');
+
+  return `public '${routePath}' = async (${inputArgument}): Promise<${converter.toTs(resultType, 1)}> => {
+    return this.callApi(${routeCode}, { ${args.join(', ')} });
   }`;
 }
 
@@ -206,6 +234,7 @@ async function processApi(
   }${
     methods.length
       ? `
+
   ${methods.join('\n\n  ')}`
       : ''
   }
