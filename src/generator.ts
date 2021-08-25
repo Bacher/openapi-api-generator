@@ -40,7 +40,7 @@ export type MiddlewareParams = {
   headers?: Headers;
 };
 
-export type Middleware<Meta> = (params: MiddlewareParams, meta: Meta) => Promise<any>;
+export type Middleware<Meta> = (params: MiddlewareParams, meta?: Meta) => Promise<any>;
 
 function interpolateParams(url: string, params: QueryParams) {
   let updatedUrl = url;
@@ -80,7 +80,7 @@ class ApiGroup<Meta> {
       query?: QueryParams;
       body?: any;
       headers?: Headers;
-      meta: Meta;
+      meta?: Meta;
     }): Promise<any> {
     return this.middleware({
       method: this.method,
@@ -157,7 +157,7 @@ function formatMethod(
   }
 
   let bodyCode = '';
-  let queryParams = 'undefined';
+  let queryParams = '';
   let routeCode = `'${routePath}'`;
 
   if (flatTypes.length > 0 || parameters.length - inPathParams.length - inQueryParams.length > 0) {
@@ -180,9 +180,9 @@ function formatMethod(
     paramsCode = bodyCode;
   }
 
-  const inputArgument = `{${paramsCode ? `params: ${paramsCode}, ` : ''}headers, meta}: { ${
-    paramsType ? `params: ${paramsType}, ` : ''
-  }headers?: Headers, meta: Meta, }`;
+  const inputArgument = `${
+    paramsCode ? `${paramsCode}: ${paramsType}` : '_?: void'
+  }, {headers, meta}: { headers?: Headers, meta?: Meta } = {}`;
 
   const args = [];
 
