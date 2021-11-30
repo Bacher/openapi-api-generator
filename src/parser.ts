@@ -1,4 +1,13 @@
-import {ApiMethod, InnerType, ObjectFieldType, Parameter, ParameterPlace, RefType, TypeDeclaration} from './types';
+import {
+  ApiMethod,
+  InnerType,
+  ObjectFieldType,
+  ObjectType,
+  Parameter,
+  ParameterPlace,
+  RefType,
+  TypeDeclaration,
+} from './types';
 import {Paths, YamlFile, YamlType} from './yaml.types';
 import path from 'path';
 import {promises as fs} from 'fs';
@@ -44,7 +53,7 @@ function convertType(propType: YamlType, file: string): InnerType {
     return loadTypes(propType['$ref'], file);
   }
 
-  if (!propType.type && 'properties' in propType) {
+  if (!propType.type && ('properties' in propType || 'additionalProperties' in propType)) {
     // eslint-disable-next-line no-param-reassign
     propType.type = 'object';
   }
@@ -82,9 +91,9 @@ function convertType(propType: YamlType, file: string): InnerType {
       };
     }
     case 'object': {
-      let propertiesObject: InnerType | undefined;
+      let propertiesObject: ObjectType | undefined;
 
-      if ('properties' in propType) {
+      if ('properties' in propType && propType.properties) {
         const fields: ObjectFieldType[] = [];
         for (const [fieldName, fieldDesc] of Object.entries(propType.properties)) {
           fields.push({
@@ -113,11 +122,29 @@ function convertType(propType: YamlType, file: string): InnerType {
           composition,
         };
       } else if ('oneOf' in propType) {
+        let discriminatorType;
+
+        if (propertiesObject) {
+          const discriminatorField = propertiesObject.fields.find(
+            ({name}) => name === propType.discriminator.propertyName,
+          );
+
+          if (discriminatorField) {
+            // TODO: Add inline enums
+            // if (discriminatorField.type.type === 'ref' || discriminatorField.type.type === 'enum') {
+            if (discriminatorField.type.type === 'ref') {
+              discriminatorType = discriminatorField.type;
+            }
+          }
+        }
+
         return {
           type: 'union',
+          fieldsObject: propertiesObject,
           // @ts-ignore
           union: propType.oneOf.map((part) => convertType(part, file)),
           discriminator: propType.discriminator,
+          discriminatorType,
         };
       } else if (propertiesObject) {
         return propertiesObject;

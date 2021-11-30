@@ -29,16 +29,18 @@ export type ObjectType = {
 
 export type UnionType = {
   type: 'union';
+  fieldsObject?: ObjectType;
   union: (ObjectType | RefType)[];
   discriminator: {
     propertyName: string;
     mapping: any;
   };
+  discriminatorType?: RefType;
 };
 
 export type ObjectCompositionType = {
   type: 'object-composition';
-  composition: (ObjectType | RefType)[];
+  composition: (ObjectType | UnionType | RefType)[];
 };
 
 export type MapType = {
@@ -66,7 +68,7 @@ export type VoidType = {
   type: 'void';
 };
 
-export type InnerType =
+export type ConcreteInnerType =
   | StringType
   | NumberType
   | BooleanType
@@ -76,8 +78,9 @@ export type InnerType =
   | MapType
   | ArrayType
   | EnumType
-  | RefType
   | VoidType;
+
+export type InnerType = ConcreteInnerType | RefType;
 
 export type Parameter = {
   place: ParameterPlace;

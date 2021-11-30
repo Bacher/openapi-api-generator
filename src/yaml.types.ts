@@ -21,16 +21,16 @@ export type YamlType =
       type: 'array';
       items: YamlType;
     }
-  | YamlObject;
+  | YamlObject
+  | YamlObjectMap;
 
 export type YamlObject = {
   type?: 'object';
   title?: string;
   required?: string[];
+  properties?: Record<string, YamlType>;
 } & (
-  | {
-      properties: Record<string, YamlType>;
-    }
+  | {}
   | {
       allOf: (YamlRef | YamlObject)[];
     }
@@ -41,10 +41,13 @@ export type YamlObject = {
         mapping: Record<string, string>;
       };
     }
-  | {
-      additionalProperties: YamlType;
-    }
 );
+
+export type YamlObjectMap = {
+  type?: 'object';
+  title?: string;
+  additionalProperties: YamlType;
+};
 
 export type Schema = YamlRef | YamlObject;
 

@@ -1,6 +1,6 @@
 import _ from 'lodash';
 
-import type {InnerType, TypeDeclaration, TypesMap} from './types';
+import type {InnerType, ObjectType, RefType, TypeDeclaration, TypesMap} from './types';
 import {EnumType, ObjectFieldType} from './types';
 
 function pascalCase(str: string): string {
@@ -115,15 +115,23 @@ export class Converter {
     }
   }
 
-  private unRef(type: TypeDeclaration | ObjectFieldType): TypeDeclaration | ObjectFieldType {
+  private unrefType(type: RefType): TypeDeclaration {
+    if (type.type !== 'ref') {
+      throw new Error('Not a ref');
+    }
+
+    const actualType = this.types.get(type.ref);
+
+    if (!actualType) {
+      throw new Error(`Type "${type.ref}" is not found`);
+    }
+
+    return actualType;
+  }
+
+  private unref(type: TypeDeclaration | ObjectFieldType): TypeDeclaration | ObjectFieldType {
     if (type.type.type === 'ref') {
-      const unRefType = this.types.get(type.type.ref);
-
-      if (!unRefType) {
-        throw new Error(`Can't resolve ref type: ${type.type.ref}`);
-      }
-
-      return unRefType;
+      return this.unrefType(type.type);
     }
 
     return type;
@@ -148,7 +156,7 @@ export class Converter {
           return undefined;
         }
 
-        return this.unRef(foundField);
+        return this.unref(foundField);
       }
 
       case 'object-composition': {
@@ -195,7 +203,7 @@ ${gap}}`;
         const propertyName = type.discriminator.propertyName;
         const mapping = type?.discriminator?.mapping ? [...Object.entries(type.discriminator.mapping)] : undefined;
 
-        return type.union
+        const variants = type.union
           .map((innerType) => {
             const serializedType = this.toTs(innerType, depth);
 
@@ -211,11 +219,17 @@ ${gap}}`;
               }
 
               const propertyValue = propertyValueEntry[0];
-              const finalType = this.types.get(innerType.ref)!;
               let value: string | undefined;
 
               if (this.useEnums) {
-                const discriminatorType = this.getFieldTypeByName(finalType.type, propertyName);
+                let discriminatorType;
+
+                if (type.discriminatorType) {
+                  discriminatorType = this.unrefType(type.discriminatorType);
+                } else {
+                  const finalType = this.types.get(innerType.ref)!;
+                  discriminatorType = this.getFieldTypeByName(finalType.type, propertyName);
+                }
 
                 if (discriminatorType && discriminatorType.type.type === 'enum') {
                   if (!discriminatorType.type.values.some((value) => value === propertyValue)) {
@@ -236,6 +250,21 @@ ${gap}}`;
             return serializedType;
           })
           .join(' | ');
+
+        let fields: ObjectType | undefined;
+
+        if (type.fieldsObject) {
+          fields = {
+            ...type.fieldsObject,
+            fields: type.fieldsObject.fields.filter((field) => field.name !== propertyName),
+          };
+        }
+
+        if (fields) {
+          return `${this.toTs(fields, depth)} & (${variants})`;
+        }
+
+        return `(${variants})`;
 
       case 'map':
         return `Record<string, ${this.toTs(type.elementType, depth)}>`;
