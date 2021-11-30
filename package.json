@@ -2,7 +2,15 @@
   "name": "openapi-api-generator",
   "version": "0.1.21",
   "description": "Api generator for openapi specification",
-  "author": "Ilya Lebedev <bacherko@gmail.com> (https://github.com/bacher/openapi-api-generator)",
+  "author": {
+    "name": "Ilya Lebedev",
+    "email": "bacherko@gmail.com",
+    "url": "https://github.com/bacher"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bacher/openapi-api-generator.git"
+  },
   "main": "src/index.ts",
   "bin": "dist/run.js",
   "scripts": {
