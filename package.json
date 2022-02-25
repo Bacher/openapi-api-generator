@@ -18,7 +18,7 @@
     "build": "tsc",
     "prepublish": "rm -rf dist && npm run build",
     "types-out-types": "tsc out/*.ts",
-    "test": "yarn start examples/client/openapi.yaml --use-enums && yarn types-out-types"
+    "test": "yarn start examples/client/openapi.yaml --namespace Api --use-enums && yarn types-out-types"
   },
   "files": [
     "dist/",

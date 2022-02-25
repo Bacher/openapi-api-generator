@@ -46,7 +46,7 @@ export type YamlObject = {
 export type YamlObjectMap = {
   type?: 'object';
   title?: string;
-  additionalProperties: YamlType;
+  additionalProperties: true | YamlType;
 };
 
 export type Schema = YamlRef | YamlObject;

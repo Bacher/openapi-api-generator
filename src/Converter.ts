@@ -269,6 +269,9 @@ ${gap}}`;
       case 'map':
         return `Record<string, ${this.toTs(type.elementType, depth)}>`;
 
+      case 'free-form-map':
+        return `Record<string, unknown>`;
+
       case 'array':
         return `${this.toTs(type.elementType, depth)}[]`;
 

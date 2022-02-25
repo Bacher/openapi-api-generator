@@ -48,6 +48,10 @@ export type MapType = {
   elementType: InnerType;
 };
 
+export type FreeFormMapType = {
+  type: 'free-form-map';
+};
+
 export type ArrayType = {
   type: 'array';
   elementType: InnerType;
@@ -76,6 +80,7 @@ export type ConcreteInnerType =
   | ObjectCompositionType
   | UnionType
   | MapType
+  | FreeFormMapType
   | ArrayType
   | EnumType
   | VoidType;

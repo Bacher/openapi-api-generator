@@ -149,6 +149,12 @@ function convertType(propType: YamlType, file: string): InnerType {
       } else if (propertiesObject) {
         return propertiesObject;
       } else if ('additionalProperties' in propType) {
+        if (propType.additionalProperties === true) {
+          return {
+            type: 'free-form-map',
+          };
+        }
+
         return {
           type: 'map',
           elementType: convertType(propType.additionalProperties, file),
