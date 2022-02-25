@@ -1,6 +1,6 @@
 {
   "name": "openapi-api-generator",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "description": "Api generator for openapi specification",
   "author": {
     "name": "Ilya Lebedev",
