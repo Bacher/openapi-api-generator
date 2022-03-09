@@ -177,9 +177,10 @@ export class Converter {
     }
   }
 
-  toTs(type: InnerType, depth = 0): string {
+  toTs(type: InnerType, depth = 0, {readonly}: {readonly?: boolean} = {}): string {
     const gap = '  '.repeat(depth);
     const innerGap = '  '.repeat(depth + 1);
+    const modificators = `${readonly ? 'readonly ' : ''}`;
 
     switch (type.type) {
       case 'string':
@@ -188,7 +189,7 @@ export class Converter {
       case 'void':
         return type.type;
       case 'object':
-        return `{
+        return `${modificators}{
 ${innerGap}${type.fields
           .map((field) => {
             return `${field.name}${field.required ? '' : '?'}: ${this.toTs(field.type, depth + 1)}`;
@@ -267,13 +268,13 @@ ${gap}}`;
         return `(${variants})`;
 
       case 'map':
-        return `Record<string, ${this.toTs(type.elementType, depth)}>`;
+        return `${modificators}Record<string, ${this.toTs(type.elementType, depth)}>`;
 
       case 'free-form-map':
-        return `Record<string, unknown>`;
+        return `${modificators}Record<string, unknown>`;
 
       case 'array':
-        return `${this.toTs(type.elementType, depth)}[]`;
+        return `${modificators}${this.toTs(type.elementType, depth)}[]`;
 
       case 'enum':
         if (this.useEnums && type.extractedEnumName) {

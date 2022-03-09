@@ -138,7 +138,9 @@ function formatMethod(
 
   let paramsType = parameters.length
     ? `{
-    ${parameters.map((p) => `${p.name}${p.required ? '' : '?'}: ${converter.toTs(p.type, 2)}`).join(';\n    ')};
+    ${parameters
+      .map((p) => `${p.name}${p.required ? '' : '?'}: ${converter.toTs(p.type, 2, {readonly: true})}`)
+      .join(';\n    ')};
   }`
     : '';
 
