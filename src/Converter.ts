@@ -268,10 +268,10 @@ ${gap}}`;
         return `(${variants})`;
 
       case 'map':
-        return `${modificators}Record<string, ${this.toTs(type.elementType, depth)}>`;
+        return `Record<string, ${this.toTs(type.elementType, depth)}>`;
 
       case 'free-form-map':
-        return `${modificators}Record<string, unknown>`;
+        return 'Record<string, unknown>';
 
       case 'array':
         return `${modificators}${this.toTs(type.elementType, depth)}[]`;
