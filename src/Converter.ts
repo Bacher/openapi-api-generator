@@ -267,10 +267,21 @@ ${gap}}`;
 
         return `(${variants})`;
 
-      case 'map':
-        return `Record<string, ${this.toTs(type.elementType, depth)}>`;
+      case 'map': {
+        const mapType = `Record<string, ${this.toTs(type.elementType, depth)}>`;
+
+        if (readonly) {
+          return `Readonly<${mapType}>`;
+        }
+
+        return mapType;
+      }
 
       case 'free-form-map':
+        if (readonly) {
+          return 'Readonly<Record<string, unknown>>';
+        }
+
         return 'Record<string, unknown>';
 
       case 'array':
