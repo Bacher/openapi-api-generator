@@ -1,6 +1,6 @@
 {
   "name": "openapi-api-generator",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Api generator for openapi specification",
   "author": {
     "name": "Ilya Lebedev",
@@ -16,7 +16,7 @@
   "scripts": {
     "start": "ts-node src/run.ts",
     "build": "tsc",
-    "prepublish": "rm -rf dist && npm run build",
+    "prepare": "rm -rf dist && npm run build",
     "types-out-types": "tsc out/*.ts",
     "test": "yarn start examples/client/openapi.yaml --namespace Api --use-enums && yarn types-out-types"
   },
