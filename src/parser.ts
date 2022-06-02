@@ -339,14 +339,30 @@ export async function parseOpenapi(entryFile: string) {
 
   await recursiveLoad(path.dirname(entryFile));
 
-  const typesList = [...types.values()];
-
-  if (types.size !== new Set(typesList.map((type) => type.name)).size) {
-    throw new Error('Duplicate class has found');
-  }
+  checkTypeDuplication();
 
   return {
     types,
     apiMethods,
   };
+}
+
+function checkTypeDuplication() {
+  const typesList = [...types.values()];
+  const typesNames = typesList.map((type) => type.name);
+
+  const typesNamesSet = new Set(typesList.map((type) => type.name));
+
+  if (typesNames.length !== typesNamesSet.size) {
+    const alreadyTypes = new Set();
+    for (const typeName of typesNames) {
+      if (alreadyTypes.has(typeName)) {
+        console.error(`Type [${typeName}] already declared`);
+      } else {
+        alreadyTypes.add(typeName);
+      }
+    }
+
+    throw new Error('Duplicate class has found');
+  }
 }
