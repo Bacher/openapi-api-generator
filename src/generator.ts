@@ -139,13 +139,15 @@ function formatMethod(
   let paramsType = parameters.length
     ? `{
     ${parameters
-      .map((p) => `${p.name}${p.required ? '' : '?'}: ${converter.toTs(p.type, 2, {readonly: true})}`)
+      .map((p) => `${p.name}${p.required ? '' : '?'}: ${converter.toTs(p.type, 2, {readonly: true, inApiFile: true})}`)
       .join(';\n    ')};
   }`
     : '';
 
   if (flatTypes.length) {
-    paramsType += `${paramsType ? ' & ' : ''}${flatTypes.map((type) => converter.toTs(type)).join(' & ')}`;
+    paramsType += `${paramsType ? ' & ' : ''}${flatTypes
+      .map((type) => converter.toTs(type, 0, {inApiFile: true}))
+      .join(' & ')}`;
   }
 
   let bodyCode = '';
@@ -174,7 +176,7 @@ function formatMethod(
 
   return `public '${routePath}' = async (${
     paramsCode ? `${paramsCode}: ${paramsType}` : '_?: void'
-  }, headers?: Headers, meta?: Meta): Promise<${converter.toTs(resultType, 1)}> => {
+  }, headers?: Headers, meta?: Meta): Promise<${converter.toTs(resultType, 1, {inApiFile: true})}> => {
     return this.callApi(${routeCode}, ${queryParams}, ${bodyCode ? bodyCode : 'undefined'}, headers, meta);
   }`;
 }

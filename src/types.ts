@@ -72,6 +72,10 @@ export type VoidType = {
   type: 'void';
 };
 
+export type EmptyObjectType = {
+  type: 'empty-object';
+};
+
 export type ConcreteInnerType =
   | StringType
   | NumberType
@@ -83,7 +87,8 @@ export type ConcreteInnerType =
   | FreeFormMapType
   | ArrayType
   | EnumType
-  | VoidType;
+  | VoidType
+  | EmptyObjectType;
 
 export type InnerType = ConcreteInnerType | RefType;
 

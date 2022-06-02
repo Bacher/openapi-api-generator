@@ -177,7 +177,7 @@ export class Converter {
     }
   }
 
-  toTs(type: InnerType, depth = 0, {readonly}: {readonly?: boolean} = {}): string {
+  toTs(type: InnerType, depth = 0, {readonly, inApiFile}: {readonly?: boolean; inApiFile?: boolean} = {}): string {
     const gap = '  '.repeat(depth);
     const innerGap = '  '.repeat(depth + 1);
     const modificators = `${readonly ? 'readonly ' : ''}`;
@@ -213,10 +213,6 @@ ${gap}}`;
                 throw new Error('No ref type with mapping');
               }
 
-              // console.log('TYPE=', type);
-              // console.log('innerType', innerType);
-              // console.log('mapping', mapping);
-
               const propertyValueEntry = mapping.find(([, ref]) => ref === innerType.ref);
 
               if (!propertyValueEntry) {
@@ -241,7 +237,11 @@ ${gap}}`;
                     throw new Error('No enum value');
                   }
 
-                  value = `${discriminatorType.name}.${propertyValue}`;
+                  this.usedTypes.add(discriminatorType.name);
+
+                  value = `${inApiFile && this.namespace ? `${this.namespace}.` : ''}${
+                    discriminatorType.name
+                  }.${propertyValue}`;
                 }
               }
 
@@ -270,6 +270,10 @@ ${gap}}`;
         }
 
         return `(${variants})`;
+
+      case 'empty-object': {
+        return '{}';
+      }
 
       case 'map': {
         const mapType = `Record<string, ${this.toTs(type.elementType, depth)}>`;

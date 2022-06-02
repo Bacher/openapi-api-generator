@@ -45,7 +45,10 @@ function convertType(propType: YamlType, fileName: string): InnerType {
     return loadTypes(type);
   }
 
-  if (!propType.type && ('properties' in propType || 'additionalProperties' in propType)) {
+  if (
+    !propType.type &&
+    ('properties' in propType || 'additionalProperties' in propType || 'allOf' in propType || 'oneOf' in propType)
+  ) {
     // eslint-disable-next-line no-param-reassign
     propType.type = 'object';
   }
@@ -84,6 +87,12 @@ function convertType(propType: YamlType, fileName: string): InnerType {
     }
     case 'object': {
       let propertiesObject: ObjectType | undefined;
+
+      if ([...Object.keys(propType)].length === 1) {
+        return {
+          type: 'empty-object',
+        };
+      }
 
       if ('properties' in propType && propType.properties) {
         const fields: ObjectFieldType[] = [];
@@ -155,13 +164,12 @@ function convertType(propType: YamlType, fileName: string): InnerType {
           type: 'map',
           elementType: convertType(propType.additionalProperties, fileName),
         };
-      } else {
-        console.error('Invalid object:', propType);
-        throw new Error('Invalid object notation');
       }
+
+      console.error('Invalid object:', propType);
+      throw new Error('Invalid object notation');
     }
     default:
-      // @ts-ignore
       throw new Error(`Unknown field type: "${propType.type}"`);
   }
 }
