@@ -272,7 +272,7 @@ ${gap}}`;
         return `(${variants})`;
 
       case 'empty-object': {
-        return '{}';
+        return 'Record<string, never>';
       }
 
       case 'map': {
