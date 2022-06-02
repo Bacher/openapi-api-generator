@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import {
   ApiMethod,
   InnerType,
@@ -8,7 +9,7 @@ import {
   RefType,
   TypeDeclaration,
 } from './types';
-import {Paths, YamlFile, YamlType} from './yaml.types';
+import {Discriminator, Paths, YamlFile, YamlType} from './yaml.types';
 import path from 'path';
 import {promises as fs} from 'fs';
 import {parse} from 'yaml';
@@ -23,34 +24,25 @@ function normalizeName(name: string) {
   return name.replace(/[.,!@#$%^&*()_-]+/g, '');
 }
 
-function loadTypes(typePath: string, fileName: string): RefType {
-  const [file, fullTypeName] = typePath.trim().split('#');
-
-  if (!fullTypeName.startsWith('/components/schemas/')) {
-    throw new Error(`Invalid ref link: "${fullTypeName}"`);
-  }
-
-  const normFileName = file || fileName;
-
-  const normTypePath = `${normFileName}#${fullTypeName}`;
-
-  if (!types.get(normTypePath)) {
-    if (normFileName && !loadedFiles.has(normFileName)) {
-      loadFiles.add(normFileName);
+function loadTypes({typePath, fileName}: FullTypePath): RefType {
+  if (!types.get(typePath)) {
+    if (fileName && !loadedFiles.has(fileName)) {
+      loadFiles.add(fileName);
     }
 
-    notLoadedTypes.add(normTypePath);
+    notLoadedTypes.add(typePath);
   }
 
   return {
     type: 'ref',
-    ref: normTypePath,
+    ref: typePath,
   };
 }
 
-function convertType(propType: YamlType, file: string): InnerType {
+function convertType(propType: YamlType, fileName: string): InnerType {
   if ('$ref' in propType) {
-    return loadTypes(propType['$ref'], file);
+    const type = getTypeFullName(propType['$ref'], fileName);
+    return loadTypes(type);
   }
 
   if (!propType.type && ('properties' in propType || 'additionalProperties' in propType)) {
@@ -87,7 +79,7 @@ function convertType(propType: YamlType, file: string): InnerType {
 
       return {
         type: 'array',
-        elementType: convertType(items, file),
+        elementType: convertType(items, fileName),
       };
     }
     case 'object': {
@@ -98,7 +90,7 @@ function convertType(propType: YamlType, file: string): InnerType {
         for (const [fieldName, fieldDesc] of Object.entries(propType.properties)) {
           fields.push({
             name: normalizeName(fieldName),
-            type: convertType(fieldDesc, file),
+            type: convertType(fieldDesc, fileName),
             required: propType.required?.includes(fieldName) || false,
           });
         }
@@ -110,7 +102,7 @@ function convertType(propType: YamlType, file: string): InnerType {
       }
 
       if ('allOf' in propType) {
-        const composition = propType.allOf.map((part) => convertType(part, file));
+        const composition = propType.allOf.map((part) => convertType(part, fileName));
 
         if (propertiesObject) {
           composition.push(propertiesObject);
@@ -138,12 +130,16 @@ function convertType(propType: YamlType, file: string): InnerType {
           }
         }
 
+        if (!propType.discriminator) {
+          throw new Error(`Union type [${propType.type}] have to have discriminator`);
+        }
+
         return {
           type: 'union',
           fieldsObject: propertiesObject,
           // @ts-ignore
-          union: propType.oneOf.map((part) => convertType(part, file)),
-          discriminator: propType.discriminator,
+          union: propType.oneOf.map((part) => convertType(part, fileName)),
+          discriminator: convertDiscriminator(propType.discriminator, fileName),
           discriminatorType,
         };
       } else if (propertiesObject) {
@@ -157,7 +153,7 @@ function convertType(propType: YamlType, file: string): InnerType {
 
         return {
           type: 'map',
-          elementType: convertType(propType.additionalProperties, file),
+          elementType: convertType(propType.additionalProperties, fileName),
         };
       } else {
         console.error('Invalid object:', propType);
@@ -170,14 +166,45 @@ function convertType(propType: YamlType, file: string): InnerType {
   }
 }
 
-function fitModels(data: YamlFile, file: string) {
+function convertDiscriminator(discriminator: Discriminator, fileName: string): Discriminator {
+  if (discriminator.mapping) {
+    return {
+      ...discriminator,
+      mapping: _.mapValues(discriminator.mapping, (value) => getTypeFullName(value, fileName).typePath),
+    };
+  }
+
+  return discriminator;
+}
+
+type FullTypePath = {
+  typePath: string;
+  fileName: string;
+};
+
+function getTypeFullName(typePath: string, fileName: string): FullTypePath {
+  const [typeFile, fullTypeName] = typePath.trim().split('#');
+
+  if (!fullTypeName.startsWith('/components/schemas/')) {
+    throw new Error(`Invalid ref link: "${fullTypeName}", type should have prefix "/components/schemas/"`);
+  }
+
+  const normFileName = typeFile || fileName;
+
+  return {
+    typePath: `${normFileName}#${fullTypeName}`,
+    fileName: normFileName,
+  };
+}
+
+function fitModels(data: YamlFile, fileName: string) {
   for (const [schemaName, schema] of Object.entries(data.components.schemas)) {
-    const fullModelName = `${file}#/components/schemas/${schemaName}`;
+    const fullModelName = `${fileName}#/components/schemas/${schemaName}`;
 
     types.set(fullModelName, {
       name: normalizeName(schemaName),
       fullName: fullModelName,
-      type: convertType(schema, file),
+      type: convertType(schema, fileName),
     });
     notLoadedTypes.delete(fullModelName);
   }

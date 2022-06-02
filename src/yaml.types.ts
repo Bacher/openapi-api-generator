@@ -24,6 +24,11 @@ export type YamlType =
   | YamlObject
   | YamlObjectMap;
 
+export type Discriminator = {
+  propertyName: string;
+  mapping: Record<string, string>;
+};
+
 export type YamlObject = {
   type?: 'object';
   title?: string;
@@ -36,10 +41,7 @@ export type YamlObject = {
     }
   | {
       oneOf: (YamlRef | YamlObject)[];
-      discriminator: {
-        propertyName: string;
-        mapping: Record<string, string>;
-      };
+      discriminator: Discriminator;
     }
 );
 

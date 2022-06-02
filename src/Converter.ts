@@ -213,6 +213,10 @@ ${gap}}`;
                 throw new Error('No ref type with mapping');
               }
 
+              // console.log('TYPE=', type);
+              // console.log('innerType', innerType);
+              // console.log('mapping', mapping);
+
               const propertyValueEntry = mapping.find(([, ref]) => ref === innerType.ref);
 
               if (!propertyValueEntry) {
