@@ -189,6 +189,10 @@ export class Converter {
       case 'void':
         return type.type;
       case 'object':
+        if (type.fields.length === 0) {
+          return '{}';
+        }
+
         return `${modificators}{
 ${innerGap}${type.fields
           .map((field) => {
@@ -237,11 +241,11 @@ ${gap}}`;
                     throw new Error('No enum value');
                   }
 
-                  this.usedTypes.add(discriminatorType.name);
+                  const typeName = discriminatorType.type.extractedEnumName ?? discriminatorType.name;
 
-                  value = `${inApiFile && this.namespace ? `${this.namespace}.` : ''}${
-                    discriminatorType.name
-                  }.${propertyValue}`;
+                  this.usedTypes.add(typeName);
+
+                  value = `${!inApiFile && this.namespace ? `${this.namespace}.` : ''}${typeName}.${propertyValue}`;
                 }
               }
 
