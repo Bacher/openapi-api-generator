@@ -9,8 +9,6 @@ import fs from 'fs/promises';
 import {generate} from './generator';
 import {parseOpenapi} from './parser';
 
-const DEBUG = true;
-
 async function run() {
   const {argv} = await yargs(hideBin(process.argv))
     .scriptName(require('../package.json').name)
@@ -27,6 +25,11 @@ async function run() {
     .option('use-enums', {
       type: 'boolean',
       description: 'Use Typescript enums for openapi enum values',
+      default: false,
+    })
+    .option('debug', {
+      type: 'boolean',
+      description: 'Save intermediate types definition in "types.ast.json"',
       default: false,
     })
     .alias('help', 'h')
@@ -51,7 +54,7 @@ async function run() {
 
   const {types, apiMethods} = await parseOpenapi(fullEntryPath);
 
-  if (DEBUG) {
+  if (args.debug) {
     await fs.writeFile(
       path.join(outDir, 'types.ast.json'),
       JSON.stringify(
@@ -63,6 +66,7 @@ async function run() {
         2,
       ),
     );
+    console.log("DEBUG 'types.ast.json' has written");
   }
 
   try {
