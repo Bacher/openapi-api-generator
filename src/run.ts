@@ -4,9 +4,12 @@ import path from 'path';
 import yargs from 'yargs/yargs';
 import {hideBin} from 'yargs/helpers';
 import mkdirp from 'mkdirp';
+import fs from 'fs/promises';
 
 import {generate} from './generator';
 import {parseOpenapi} from './parser';
+
+const DEBUG = true;
 
 async function run() {
   const {argv} = await yargs(hideBin(process.argv))
@@ -47,6 +50,20 @@ async function run() {
   const outDir = path.resolve(args.out);
 
   const {types, apiMethods} = await parseOpenapi(fullEntryPath);
+
+  if (DEBUG) {
+    await fs.writeFile(
+      path.join(outDir, 'types.ast.json'),
+      JSON.stringify(
+        [...types.entries()].reduce((acc, [name, value]) => {
+          acc[name] = value;
+          return acc;
+        }, {}),
+        null,
+        2,
+      ),
+    );
+  }
 
   try {
     await mkdirp(outDir);

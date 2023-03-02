@@ -206,59 +206,65 @@ ${gap}}`;
 
       case 'union':
         const propertyName = type.discriminator.propertyName;
-        const mapping = type?.discriminator?.mapping ? [...Object.entries(type.discriminator.mapping)] : undefined;
+        const mapping = type?.discriminator?.mapping
+          ? [...Object.entries(type.discriminator.mapping as Record<string, string>)]
+          : undefined;
 
-        const variants = type.union
-          .map((innerType) => {
-            const serializedType = this.toTs(innerType, depth);
+        let variantsList: string[];
 
-            if (mapping) {
-              if (innerType.type !== 'ref') {
-                throw new Error('No ref type with mapping');
-              }
+        if (mapping) {
+          variantsList = mapping.map(([propertyValue, typeRef]) => {
+            const serializedType = this.toTs(
+              {
+                type: 'ref',
+                ref: typeRef,
+              },
+              depth,
+            );
 
-              const propertyValueEntry = mapping.find(([, ref]) => ref === innerType.ref);
+            const propertyValueEntry = mapping.find(([, ref]) => ref === typeRef);
 
-              if (!propertyValueEntry) {
-                throw new Error('Mapping ref type is not matched');
-              }
-
-              const propertyValue = propertyValueEntry[0];
-              let value: string | undefined;
-
-              if (this.useEnums) {
-                let discriminatorType;
-
-                if (type.discriminatorType) {
-                  discriminatorType = this.unrefType(type.discriminatorType);
-                } else {
-                  const finalType = this.types.get(innerType.ref)!;
-                  discriminatorType = this.getFieldTypeByName(finalType.type, propertyName);
-                }
-
-                if (discriminatorType && discriminatorType.type.type === 'enum') {
-                  if (!discriminatorType.type.values.some((value) => value === propertyValue)) {
-                    throw new Error('No enum value');
-                  }
-
-                  const typeName = discriminatorType.type.extractedEnumName ?? discriminatorType.name;
-
-                  this.usedTypes.add(typeName);
-
-                  value = `${!inApiFile && this.namespace ? `${this.namespace}.` : ''}${typeName}.${propertyValue}`;
-                }
-              }
-
-              if (!value) {
-                value = `"${propertyValue}"`;
-              }
-
-              return `Omit<${serializedType}, '${propertyName}'> & { ${propertyName}: ${value} }`;
+            if (!propertyValueEntry) {
+              console.error(`Invalid mapping reference: "${typeRef}"`);
+              throw new Error('Mapping ref type is not matched');
             }
 
-            return serializedType;
-          })
-          .join(' | ');
+            let value: string | undefined;
+
+            if (this.useEnums) {
+              let discriminatorType;
+
+              if (type.discriminatorType) {
+                discriminatorType = this.unrefType(type.discriminatorType);
+              } else {
+                const finalType = this.types.get(typeRef)!;
+                discriminatorType = this.getFieldTypeByName(finalType.type, propertyName);
+              }
+
+              if (discriminatorType && discriminatorType.type.type === 'enum') {
+                if (!discriminatorType.type.values.some((value) => value === propertyValue)) {
+                  throw new Error('No enum value');
+                }
+
+                const typeName = discriminatorType.type.extractedEnumName ?? discriminatorType.name;
+
+                this.usedTypes.add(typeName);
+
+                value = `${!inApiFile && this.namespace ? `${this.namespace}.` : ''}${typeName}.${propertyValue}`;
+              }
+            }
+
+            if (!value) {
+              value = `"${propertyValue}"`;
+            }
+
+            return `Omit<${serializedType}, '${propertyName}'> & { ${propertyName}: ${value} }`;
+          });
+        } else {
+          variantsList = type.union.map((innerType) => this.toTs(innerType, depth));
+        }
+
+        const variants = variantsList.join(' | ');
 
         let fields: ObjectType | undefined;
 
