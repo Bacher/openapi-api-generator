@@ -1,4 +1,8 @@
+import path from 'path';
+import {promises as fs} from 'fs';
+import {parse} from 'yaml';
 import _ from 'lodash';
+
 import {
   ApiMethod,
   InnerType,
@@ -10,9 +14,6 @@ import {
   TypeDeclaration,
 } from './types';
 import {Discriminator, Paths, YamlFile, YamlType} from './yaml.types';
-import path from 'path';
-import {promises as fs} from 'fs';
-import {parse} from 'yaml';
 
 const loadFiles = new Set<string>();
 const loadedFiles = new Set<string>();
@@ -197,7 +198,13 @@ function getTypeFullName(typePath: string, fileName: string): FullTypePath {
     throw new Error(`Invalid ref link: "${fullTypeName}", type should have prefix "/components/schemas/"`);
   }
 
-  const normFileName = typeFile || fileName;
+  let normFileName: string;
+
+  if (typeFile) {
+    normFileName = path.join(path.dirname(fileName), typeFile);
+  } else {
+    normFileName = fileName;
+  }
 
   return {
     typePath: `${normFileName}#${fullTypeName}`,
